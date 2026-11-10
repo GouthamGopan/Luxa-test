@@ -3,9 +3,12 @@
 /**
  * LUXA Homes / The Grove
  * All imagery is extracted from the supplied LUXA brochure.
- * Contact email intentionally left blank until the studio provides an official address.
+ * Configure the official address and optional Web3Forms key before publishing.
+ * Do NOT put private SMTP passwords or secret email credentials in browser JavaScript.
  */
-const CONTACT_EMAIL = 'alenkurunthodath@gmail.com'; // TODO: Add an official recipient, e.g. 'studio@your-domain.com'.
+const CONTACT_EMAIL = 'alenkurunthodath@gmail.com'; // Optional email recipient for Gmail/Outlook/email app drafts.
+const WEB3FORMS_ACCESS_KEY = ''; // Free access key from https://web3forms.com for direct website submission.
+const IS_MOBILE_DEVICE = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
 const REDUCED_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 const villas = {
@@ -269,30 +272,136 @@ document.addEventListener('keydown', event => {
   }
 });
 
+// Enquiries can be delivered directly from a desktop/mobile browser once the
+// studio configures WEB3FORMS_ACCESS_KEY. Browser-based email compose also works
+// without a backend. It always requires the visitor to review and click Send.
 const form = $('#enquiry-form');
-form.addEventListener('submit', async event => {
-  event.preventDefault();
-  if (!form.reportValidity()) return;
-  const data = Object.fromEntries(new FormData(form));
+const enquirySubmit = $('#enquiry-submit');
+const enquirySubmitLabel = $('#enquiry-submit-label');
+const enquiryFeedback = $('#form-feedback');
+const draftRetryLink = $('#enquiry-draft-link');
+const hasDirectDelivery = Boolean(WEB3FORMS_ACCESS_KEY.trim());
+
+function setEnquiryFeedback(message, state = '') {
+  enquiryFeedback.textContent = message;
+  enquiryFeedback.dataset.state = state;
+}
+
+function enquiryDetails() {
+  if (!form.reportValidity()) return null;
+  const data = Object.fromEntries(new FormData(form).entries());
   const subject = `LUXA Homes enquiry — ${data.interest}`;
   const body = `Name: ${data.name}\nEmail: ${data.email}\nInterested in: ${data.interest}\n\nMessage:\n${data.message || 'Please contact me with more details.'}`;
-  if (CONTACT_EMAIL.trim()) {
-    window.location.href = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    $('#form-feedback').textContent = 'Your email application should open with the enquiry prepared. Please send it from there.';
-    notice('Your email draft is ready. Please review and send it in your email app.');
-  } else {
-    let copied = false;
-    try { await navigator.clipboard.writeText(`${subject}\n\n${body}`); copied = true; } catch (e) {
-      // Fallback for direct file:// previews or browsers without Clipboard API access.
-      const helper = document.createElement('textarea');
-      helper.value = `${subject}\n\n${body}`;
-      helper.style.position='fixed';helper.style.opacity='0';document.body.appendChild(helper);helper.select();
-      try { copied = document.execCommand('copy'); } catch (_) { /* noop */ }
-      helper.remove();
-    }
-    
+  return { data, subject, body };
+}
+
+function browserMailLink(method, subject, body) {
+  const recipient = CONTACT_EMAIL.trim();
+  if (method === 'outlook') {
+    const url = new URL('https://outlook.live.com/mail/0/deeplink/compose');
+    url.searchParams.set('to', recipient);
+    url.searchParams.set('subject', subject);
+    url.searchParams.set('body', body);
+    return url.toString();
   }
+  const url = new URL('https://mail.google.com/mail/');
+  url.searchParams.set('view', 'cm');
+  url.searchParams.set('fs', '1');
+  url.searchParams.set('to', recipient);
+  url.searchParams.set('su', subject);
+  url.searchParams.set('body', body);
+  return url.toString();
+}
+
+function openEnquiryDraft(method, details) {
+  if (!details) return;
+  const { subject, body } = details;
+  draftRetryLink.hidden = true;
+  if (method === 'app') {
+    window.location.href = `mailto:${CONTACT_EMAIL.trim()}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    setEnquiryFeedback(CONTACT_EMAIL.trim()
+      ? 'Your email app should open with a prepared draft. Review it and press Send.'
+      : 'Preview mode: no recipient is configured. Please set CONTACT_EMAIL in script.js before publishing.');
+    return;
+  }
+  const url = browserMailLink(method, subject, body);
+  // Triggered directly by a user click so browsers can open a webmail tab.
+  const link = document.createElement('a');
+  link.href = url;
+  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  // If a popup was blocked, this regular link can be clicked directly.
+  draftRetryLink.href = url;
+  draftRetryLink.hidden = false;
+  const service = method === 'outlook' ? 'Outlook Web' : 'Gmail';
+  const recipientNote = CONTACT_EMAIL.trim()
+    ? 'Review the draft and press Send; opening a draft does not send it automatically.'
+    : 'The To field is empty because CONTACT_EMAIL has not been configured. Enter the recipient before sending.';
+  setEnquiryFeedback(`${service} should open in a new browser tab. ${recipientNote}`);
+  notice(`${service} draft opened. Review and press Send to submit your enquiry.`, 5500);
+}
+
+async function submitDirectEnquiry(details) {
+  if (!details) return;
+  enquirySubmit.disabled = true;
+  enquirySubmit.setAttribute('aria-busy','true');
+  enquirySubmitLabel.textContent = 'SENDING ENQUIRY…';
+  draftRetryLink.hidden = true;
+  setEnquiryFeedback('Sending your enquiry securely…');
+  try {
+    const payload = {
+      access_key: WEB3FORMS_ACCESS_KEY.trim(),
+      subject: details.subject,
+      from_name: 'LUXA Homes Website',
+      name: details.data.name,
+      email: details.data.email,
+      interest: details.data.interest,
+      message: details.data.message || 'Please contact me with more details.',
+      replyto: details.data.email,
+    };
+    const response = await fetch('https://api.web3forms.com/submit', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+      body: JSON.stringify(payload),
+    });
+    const result = await response.json();
+    if (!response.ok || result.success !== true) {
+      throw new Error(result.message || 'Submission service unavailable');
+    }
+    form.reset();
+    setEnquiryFeedback('Your enquiry has been sent successfully. The LUXA Homes team can reply to your email address.', 'success');
+    notice('Enquiry sent successfully. Thank you!', 5200);
+  } catch (error) {
+    // Never report successful delivery unless the service has confirmed it.
+    setEnquiryFeedback('We could not send your enquiry. Please retry or choose Gmail / Outlook in browser below. Your message is still in the form.', 'error');
+    notice('Enquiry not sent — please retry or use a browser email option.', 5700);
+    console.error('LUXA enquiry delivery failed:', error);
+  } finally {
+    enquirySubmit.disabled = false;
+    enquirySubmit.removeAttribute('aria-busy');
+    enquirySubmitLabel.textContent = hasDirectDelivery ? 'SEND ENQUIRY' : (IS_MOBILE_DEVICE ? 'OPEN EMAIL APP' : 'OPEN GMAIL IN BROWSER');
+  }
+}
+
+// On mobile, preserve the mail-app shortcut from the earlier prototype.
+// On desktop, use a web browser email draft by default, rather than mailto:.
+enquirySubmitLabel.textContent = hasDirectDelivery ? 'SEND ENQUIRY' : (IS_MOBILE_DEVICE ? 'OPEN EMAIL APP' : 'OPEN GMAIL IN BROWSER');
+setEnquiryFeedback(hasDirectDelivery
+  ? 'Send directly from the website, or choose a browser email service below.'
+  : 'Browser email preview: the draft will open in Gmail or Outlook and you must press Send. Configure CONTACT_EMAIL and WEB3FORMS_ACCESS_KEY to activate direct delivery.');
+form.addEventListener('submit', event => {
+  event.preventDefault();
+  const details = enquiryDetails();
+  if (!details) return;
+  if (hasDirectDelivery) submitDirectEnquiry(details);
+  else openEnquiryDraft(IS_MOBILE_DEVICE ? 'app' : 'gmail', details);
 });
+$$('[data-email-method]').forEach(button => button.addEventListener('click', () => {
+  openEnquiryDraft(button.dataset.emailMethod, enquiryDetails());
+}));
 
 // Progressive scroll reveal; keep content visible for older browsers.
 let observer;
