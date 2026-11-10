@@ -290,14 +290,7 @@ form.addEventListener('submit', async event => {
       try { copied = document.execCommand('copy'); } catch (_) { /* noop */ }
       helper.remove();
     }
-    const feedback = $('#form-feedback');
-    if (copied) {
-      feedback.textContent = 'Preview only: your enquiry details were copied. No message has been sent. Configure CONTACT_EMAIL in script.js before launch.';
-      notice('Enquiry copied to your clipboard. This demo does not send emails.', 5500);
-    } else {
-      feedback.textContent = 'Preview only — not sent. Configure CONTACT_EMAIL in script.js to enable email enquiries. Your message is still available in this form.';
-      notice('Preview only: no email was sent. Add your official contact email to activate enquiries.',5500);
-    }
+    
   }
 });
 
