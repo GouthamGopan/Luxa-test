@@ -7,7 +7,7 @@
  * Do NOT put private SMTP passwords or secret email credentials in browser JavaScript.
  */
 const CONTACT_EMAIL = 'alenkurunthodath@gmail.com'; // Optional email recipient for Gmail/Outlook/email app drafts.
-const WEB3FORMS_ACCESS_KEY = ''; // Free access key from https://web3forms.com for direct website submission.
+const WEB3FORMS_ACCESS_KEY = '516fdb2c-9beb-417a-925e-41ac12d98acc'; // Free access key from https://web3forms.com for direct website submission.
 const IS_MOBILE_DEVICE = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
 const REDUCED_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
