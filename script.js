@@ -5,7 +5,7 @@
  * All imagery is extracted from the supplied LUXA brochure.
  * Contact email intentionally left blank until the studio provides an official address.
  */
-const CONTACT_EMAIL = ''; // TODO: Add an official recipient, e.g. 'studio@your-domain.com'.
+const CONTACT_EMAIL = 'alenkurunthodath@gmail.com'; // TODO: Add an official recipient, e.g. 'studio@your-domain.com'.
 const REDUCED_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 const villas = {
