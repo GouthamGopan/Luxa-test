@@ -123,5 +123,84 @@
 
   <div class="lightbox" id="image-lightbox" role="dialog" aria-modal="true" aria-label="Expanded architecture plan" hidden><button id="lightbox-close" aria-label="Close enlarged image">×</button><img id="lightbox-image" src="" alt="Expanded site or villa plan" /><p id="lightbox-caption">ORIGINAL LUXA HOMES BROCHURE ARTWORK</p></div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  
+<style>
+.luxa-svg-arrow {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  vertical-align: -0.12em;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.button .luxa-svg-arrow,
+.text-link .luxa-svg-arrow {
+  width: 18px;
+  height: 18px;
+}
+</style>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const arrows = {
+    "↗": "M5 19L19 5M8 5h11v11",
+    "↘": "M5 5l14 14M8 19h11V8",
+    "→": "M4 12h16m-7-7 7 7-7 7",
+    "←": "M20 12H4m7-7-7 7 7 7"
+  };
+
+  const walker = document.createTreeWalker(
+    document.body,
+    NodeFilter.SHOW_TEXT
+  );
+
+  const nodes = [];
+
+  while (walker.nextNode()) {
+    const node = walker.currentNode;
+
+    if (
+      node.parentElement?.closest(
+        "script, style, textarea, code, pre"
+      )
+    ) continue;
+
+    if (/[↗↘→←]/.test(node.textContent)) {
+      nodes.push(node);
+    }
+  }
+
+  nodes.forEach(node => {
+    const fragment = document.createDocumentFragment();
+
+    node.textContent.split(/([↗↘→←])/g).forEach(part => {
+      if (arrows[part]) {
+        const ns = "http://www.w3.org/2000/svg";
+        const svg = document.createElementNS(ns, "svg");
+        const path = document.createElementNS(ns, "path");
+
+        svg.setAttribute("viewBox", "0 0 24 24");
+        svg.setAttribute("aria-hidden", "true");
+        svg.classList.add("luxa-svg-arrow");
+
+        path.setAttribute("d", arrows[part]);
+        svg.appendChild(path);
+        fragment.appendChild(svg);
+      } else if (part) {
+        fragment.appendChild(
+          document.createTextNode(part)
+        );
+      }
+    });
+
+    node.replaceWith(fragment);
+  });
+});
+</script>
+
 </body>
 </html>
